@@ -1,0 +1,33 @@
+Board 38 Fast Placement Research Summary
+=======================================
+
+Fast mode: 1
+Average placed-student salary: 9.21 LPA
+
+1) Placement prediction
+Best model: Decision Tree
+Accuracy: 0.9998
+MacroF1: 0.9996
+
+2) Salary prediction for placed students
+Best model by RMSE: Linear Regression
+RMSE: 3.4900
+MAE: 3.0142
+R2: -0.0097
+
+3) Salary-level classification among placed students
+Best model: Bagged Trees
+Accuracy: 0.4423
+MacroF1: 0.2929
+
+4) Ablation study
+Best ablation setting: Remove Experience
+Accuracy: 0.9998
+MacroF1: 0.9997
+
+Main interpretation:
+- This dataset is strong for predicting placement status.
+- Feature importance and ablation are the strongest parts of the research.
+- Salary prediction is weak because the dataset lacks job-market variables such as role, company, industry, location, and interview score.
+- Salary-level classification is secondary and should not be presented as exact job prediction.
+- Placement risk scores are useful for explanation, but they should not be treated as causal or final decisions.

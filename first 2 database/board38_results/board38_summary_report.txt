@@ -1,0 +1,31 @@
+Board 38 Placement Research Summary
+===================================
+
+Average placed-student salary: 9.21 LPA
+
+1) Placement prediction
+Best model: Decision Tree
+Accuracy: 0.9998 | MacroF1: 0.9996
+
+2) Salary prediction for placed students
+Best model by RMSE: Support Vector Regression
+RMSE: 3.4819 | MAE: 3.0099 | R2: -0.0069
+
+3) Job-level prediction
+Best model: ECOC
+Accuracy: 0.9112 | MacroF1: 0.4138
+
+4) Efficiency-level prediction
+Best model: Decision Tree
+Accuracy: 0.9998 | MacroF1: 0.6664
+
+5) Efficiency percentage regression
+Best model by RMSE: Bagged Trees
+RMSE: 4.0681 | MAE: 1.7962 | R2: 0.9584
+
+Main interpretation:
+- Placement is highly predictable in this dataset. This may indicate strong signal, synthetic structure, or embedded rules.
+- Salary prediction is harder and depends on missing job-market features such as role, company, industry, location, and interview performance.
+- Job-level accuracy can be high, but Macro-F1 should be checked because class imbalance can inflate accuracy.
+- Feature importance and ablation results should be used to explain why the models work.
+- Placement risk scores are useful as a practical output but should not be treated as causal or final decisions.
