@@ -171,6 +171,58 @@ fprintf("\n===== TASK 1: EMPLOYMENT STATUS PREDICTION =====\n");
 writetable(empResults, fullfile(resultsFolder, "employment_cv_results.csv"));
 
 %% ============================================================
+% TASK 1b: Employment prediction, working-age adults only (22-60)
+% Investigates whether AGE's dominance in Task 1 reflects genuine
+% employability signal or is substantially driven by retirement
+% among older respondents in the full sample.
+%% ============================================================
+fprintf("\n===== TASK 1b: EMPLOYMENT PREDICTION (WORKING AGE 22-60 ONLY) =====\n");
+
+TclsWorking = Tcls(Tcls.AGE >= 22 & Tcls.AGE <= 60, :);
+
+workingClassDist = groupcounts(TclsWorking, empTarget);
+fprintf("Working-age (22-60) rows: %d\n", height(TclsWorking));
+fprintf("Working-age class distribution:\n");
+disp(workingClassDist);
+writetable(workingClassDist, fullfile(resultsFolder, "employment_workingage_class_distribution.csv"));
+
+[empResultsWorking, empPredWorking, empTruthWorking] = classification_cv( ...
+    TclsWorking, empTarget, kFolds, numTrees, resultsFolder, "employment_workingage");
+
+writetable(empResultsWorking, fullfile(resultsFolder, "employment_workingage_cv_results.csv"));
+
+% Feature importance restricted to working-age sample, to see whether
+% AGE's rank drops relative to the full-sample result once retirees
+% are excluded.
+fprintf("\n----- Feature importance (working-age only) -----\n");
+[importanceTableWorking, ~] = compute_feature_importance( ...
+    TclsWorking, empTarget, numTrees, resultsFolder, "employment_workingage");
+disp(importanceTableWorking);
+writetable(importanceTableWorking, fullfile(resultsFolder, "employment_workingage_feature_importance.csv"));
+
+% Side-by-side comparison: full sample vs working-age-only
+fprintf("\n----- Full sample vs Working-age comparison -----\n");
+fprintf("Full sample    : Best model %s | Test Acc %.4f | Test F1 %.4f\n", ...
+    empResults.Model(1), empResults.Test_Acc_Mean(1), empResults.Test_F1_Mean(1));
+fprintf("Working age    : Best model %s | Test Acc %.4f | Test F1 %.4f\n", ...
+    empResultsWorking.Model(1), empResultsWorking.Test_Acc_Mean(1), empResultsWorking.Test_F1_Mean(1));
+
+% Single-feature comparison within working-age sample: does AGE alone still
+% match HDACYR alone once retirees are excluded, mirroring the full-sample
+% "Age Only (TRUE)" ablation result?
+fprintf("\n----- AGE-only vs YearsSinceDegree-only, working-age sample -----\n");
+ablationGroupsWorking = {
+    "All Features",                    strings(1,0);
+    "Age Only (TRUE)",                 ["SEX_2023","DGRDG","RACETHM","MARSTA","EDDAD","EDMOM","HDACYR","NDGMEMG"];
+    "YearsSinceDegree Only (TRUE)",     ["AGE","SEX_2023","DGRDG","RACETHM","MARSTA","EDDAD","EDMOM","NDGMEMG"];
+    "Remove Age AND YearsSinceDegree",  ["AGE","HDACYR"]
+};
+ablationResultsWorking = run_ablation_study( ...
+    TclsWorking, empTarget, kFolds, numTrees, resultsFolder, ablationGroupsWorking);
+disp(ablationResultsWorking);
+writetable(ablationResultsWorking, fullfile(resultsFolder, "employment_workingage_ablation_results.csv"));
+
+%% ============================================================
 % TASK 2: Feature importance for employment
 %% ============================================================
 fprintf("\n===== TASK 2: FEATURE IMPORTANCE (EMPLOYMENT) =====\n");
@@ -189,12 +241,23 @@ fprintf("\n===== TASK 3: ABLATION STUDY =====\n");
 % Define feature groups to test
 % Note: job-related columns already removed to prevent leakage
 % Only pre-employment features remain
+% Full feature set: AGE, SEX_2023, DGRDG, RACETHM, MARSTA, EDDAD, EDMOM, HDACYR, NDGMEMG
+%
+% AGE and HDACYR (years since highest degree) are highly correlated (r ~ 0.87)
+% and both act partly as retirement proxies for older respondents. The groups
+% below test each in isolation, each removed individually, and both removed
+% together, to separate genuine independent signal from redundant/correlated
+% "seniority" signal shared between the two.
 ablationGroups = {
-    "All Features",           strings(1,0);
-    "Remove Demographics",    ["AGE","SEX_2023","RACETHM","MARSTA"];
-    "Remove Education",       ["DGRDG","EDDAD","EDMOM"];
-    "Remove Parental Edu",    ["EDDAD","EDMOM"];
-    "Age Only",               ["SEX_2023","DGRDG","RACETHM","MARSTA","EDDAD","EDMOM"]
+    "All Features",              strings(1,0);
+    "Remove Demographics",       ["AGE","SEX_2023","RACETHM","MARSTA"];
+    "Remove Education",          ["DGRDG","EDDAD","EDMOM"];
+    "Remove Parental Edu",       ["EDDAD","EDMOM"];
+    "Age Only (TRUE)",           ["SEX_2023","DGRDG","RACETHM","MARSTA","EDDAD","EDMOM","HDACYR","NDGMEMG"];
+    "Remove Age Only",           ["AGE"];
+    "YearsSinceDegree Only (TRUE)", ["AGE","SEX_2023","DGRDG","RACETHM","MARSTA","EDDAD","EDMOM","NDGMEMG"];
+    "Remove YearsSinceDegree Only", ["HDACYR"];
+    "Remove Age AND YearsSinceDegree", ["AGE","HDACYR"]
 };
 
 ablationResults = run_ablation_study( ...
@@ -480,6 +543,51 @@ close(f_maj);
 % Combined: efficiency by degree level WITHIN each major field
 effByMajorDeg = groupsummary(Teff, ["NDGMEMG","DGRDG"], "mean", "EFFICIENCY");
 writetable(effByMajorDeg, fullfile(resultsFolder, "efficiency_by_major_and_degree.csv"));
+
+% Most efficient degree level PER major field
+% Minimum cell size of 30 to avoid conclusions from tiny groups
+% (e.g. Engineering x Professional has n=1 and must be excluded)
+minCell = 30;
+fprintf("\nMost efficient degree level per major field (cells with n >= %d):\n", minCell);
+majorList = unique(effByMajorDeg.NDGMEMG);
+bestRows = [];
+for mi = 1:numel(majorList)
+    sub = effByMajorDeg(effByMajorDeg.NDGMEMG == majorList(mi) & ...
+                        effByMajorDeg.GroupCount >= minCell, :);
+    if isempty(sub), continue; end
+    [~, bi] = max(sub.mean_EFFICIENCY);
+    bestRows = [bestRows; sub(bi,:)]; %#ok<AGROW>
+end
+BestDegPerMajor = bestRows;
+BestDegPerMajor.Properties.VariableNames{'DGRDG'} = 'Best_Degree_Level';
+disp(BestDegPerMajor);
+writetable(BestDegPerMajor, fullfile(resultsFolder, "best_degree_per_major.csv"));
+
+% Heatmap-style grouped bar chart: efficiency by degree within each major
+f_md = figure("Visible","on");
+majors = unique(effByMajorDeg.NDGMEMG);
+degLevels = [1 2 3 4];
+barData = nan(numel(majors), numel(degLevels));
+for mi = 1:numel(majors)
+    for di = 1:numel(degLevels)
+        row = effByMajorDeg.NDGMEMG == majors(mi) & ...
+              double(effByMajorDeg.DGRDG) == degLevels(di) & ...
+              effByMajorDeg.GroupCount >= minCell;
+        if any(row)
+            barData(mi,di) = effByMajorDeg.mean_EFFICIENCY(row);
+        end
+    end
+end
+bar(barData);
+xticks(1:numel(majors));
+xticklabels(string(majors));
+xlabel("Major field group (NDGMEMG code)");
+ylabel("Mean Career Efficiency");
+legend("Bachelor","Masters","Doctorate","Professional","Location","southoutside","Orientation","horizontal");
+title("Career Efficiency by Degree Level within each Major Field");
+grid on;
+saveas(f_md, fullfile(resultsFolder, "efficiency_degree_within_major.png"));
+close(f_md);
 
 % --- Prediction features: pre-career background + degree field ---
 % Exclude all formula components (SALARY, HRSWK, DGRDG, HDACYR) to avoid leakage

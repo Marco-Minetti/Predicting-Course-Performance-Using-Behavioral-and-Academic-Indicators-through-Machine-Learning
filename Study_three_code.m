@@ -48,7 +48,7 @@ targetDomain = "MATH";        % "MATH", "READ", or "SCIE"
 % If you are okay waiting longer, increase them.
 kFolds = 3;
 maxRows = 600000;             % Try 250000 first. Use Inf for full dataset if your PC can handle it.
-maxPredictors = 595;          % Try 900 first. Increase to 1200 if it runs fine.
+maxPredictors = 1200;          % Try 900 first. Increase to 1200 if it runs fine.
 
 missingThreshold = 0.60;      % Remove columns with more than 60% missing
 maxCategoricalLevels = 120;   % Remove categorical columns with too many categories

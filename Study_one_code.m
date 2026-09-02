@@ -26,7 +26,7 @@ target = "Final_Percentage";
 % true  = include Math/Science/English/Previous_Year_Score
 % false = remove them for a harder, more realistic test
 useStrongAcademicPredictors = false;
-useStrongEfficencyPredictors = false;
+useStrongEfficencyPredictors = true;
 
 if ~useStrongAcademicPredictors
     varsToRemove = ["Math_Score","Science_Score","English_Score","Previous_Year_Score","Performance_Level"];
@@ -38,12 +38,37 @@ if ~useStrongAcademicPredictors
 end
 
 if ~useStrongEfficencyPredictors
-    varsToRemove = ["Attendance_Percentage","Study_Hours_Per_Day", "Efficiency_Level"];
+    varsToRemove = ["Attendance_Percentage","Study_Hours_Per_Day"];
     for v = varsToRemove
         if ismember(v, T.Properties.VariableNames)
             T.(v) = [];
         end
     end
+end
+
+% Remove Efficiency_Level unconditionally — it is a discretized
+% (Low/Medium/High) version of Efficiency_pct, which is itself derived
+% from Final_Percentage via the efficiency formula. It was previously
+% bundled with Attendance_Percentage/Study_Hours_Per_Day under the same
+% flag, so setting useStrongEfficencyPredictors = true accidentally let
+% this leaky field back into the model. It must always be removed,
+% regardless of the flag setting.
+if ismember("Efficiency_Level", T.Properties.VariableNames)
+    T.Efficiency_Level = [];
+end
+
+% Remove Pass_Fail — likely derived directly from Final_Percentage
+% (e.g. pass if Final_Percentage >= threshold), which would leak
+% information about the target into the features.
+if ismember("Pass_Fail", T.Properties.VariableNames)
+    T.Pass_Fail = [];
+end
+
+% Remove Efficiency_pct — derived from Final_Percentage via the
+% efficiency formula (Final_Percentage x Boost x effort-decay term),
+% so it also leaks target information into the features.
+if ismember("Efficiency_pct", T.Properties.VariableNames)
+    T.Efficiency_pct = [];
 end
 
 %% Shuffled half split (fixed seed for reproducibility)
